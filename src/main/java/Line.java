@@ -2,9 +2,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Line {
-    private List<Cell> cells = new ArrayList<>();
+    private final List<Cell> cells;
 
     public Line(int width, Attributes currentAttributes){
+        cells = new ArrayList<>(width);
+
         for (int i = 0; i < width; i++) {
             cells.add(new Cell(' ', currentAttributes.copy()));
         }

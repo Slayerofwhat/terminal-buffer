@@ -2,12 +2,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TerminalBuffer {
-    private int width;
-    private int height;
-    private int scrollbackMax;
+    private final int width;
+    private final int height;
+    private final int scrollbackMax;
 
-    private List<Line> screen = new ArrayList<>();
-    private List<Line> scrollback = new ArrayList<>();
+    private final List<Line> screen = new ArrayList<>();
+    private final List<Line> scrollback = new ArrayList<>();
 
     private int cursorRow = 0;
     private int cursorColumn = 0;
@@ -77,12 +77,42 @@ public class TerminalBuffer {
 
             cursorColumn++;
         }
+
+        if (cursorColumn >= width) {
+            cursorColumn = 0;
+            cursorRow++;
+            if (cursorRow >= height) {
+                scrollUp();
+                cursorRow = height - 1;
+            }
+        }
     }
 
     public void insertText(String text) {
-        for (char ch : text.toCharArray()) {
-            Line line = screen.get(cursorRow);
+        if (text.isEmpty()) return;
 
+        Line line = screen.get(cursorRow);
+
+        if (cursorColumn == 0 && line.length() == width) {
+            String lineContent = line.toString();
+            String combined = text + lineContent;
+            if (combined.length() > width) {
+                String forNextLine = combined.substring(0, width);
+                String forCurrentLine = combined.substring(width);
+                setLineContent(cursorRow, forCurrentLine);
+                cursorRow++;
+                if (cursorRow >= height) {
+                    scrollUp();
+                    cursorRow = height - 1;
+                }
+                setLineContent(cursorRow, forNextLine);
+                cursorColumn = text.length();
+                return;
+            }
+        }
+
+        for (char ch : text.toCharArray()) {
+            line = screen.get(cursorRow);
             line.insertChar(cursorColumn, new Cell(ch, currentAttributes.copy()), width);
 
             cursorColumn++;
@@ -94,6 +124,23 @@ public class TerminalBuffer {
                     cursorRow = height - 1;
                 }
             }
+        }
+
+        if (cursorColumn >= width) {
+            cursorColumn = 0;
+            cursorRow++;
+            if (cursorRow >= height) {
+                scrollUp();
+                cursorRow = height - 1;
+            }
+        }
+    }
+
+    private void setLineContent(int row, String s) {
+        String padded = s.length() >= width ? s.substring(0, width) : s + " ".repeat(width - s.length());
+        Line line = screen.get(row);
+        for (int i = 0; i < width; i++) {
+            line.set(i, new Cell(padded.charAt(i), currentAttributes.copy()));
         }
     }
 
@@ -161,16 +208,24 @@ public class TerminalBuffer {
 
     public String getScreenText() {
         StringBuilder sb = new StringBuilder();
-        for (Line line : screen) {
-            sb.append(line.toString()).append("\n");
+        for (int i = 0; i < screen.size(); i++) {
+            if (i > 0) sb.append("\n");
+            sb.append(screen.get(i).toString());
         }
         return sb.toString();
     }
 
     public String getFullText() {
         StringBuilder sb = new StringBuilder();
-        for (Line sl : scrollback) sb.append(sl.toString()).append("\n");
-        for (Line sl : screen) sb.append(sl.toString()).append("\n");
+        int n = 0;
+        for (Line sl : scrollback) {
+            if (n++ > 0) sb.append("\n");
+            sb.append(sl.toString());
+        }
+        for (Line sl : screen) {
+            if (n++ > 0) sb.append("\n");
+            sb.append(sl.toString());
+        }
         return sb.toString();
     }
 
